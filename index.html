@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leiter oder Nichtleiter?</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  .app {
+    width: min(1200px, 96vw);
+    min-height: 720px;
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 28px;
+    padding: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.38);
+    position: relative;
+    z-index: 2;
+  }
+
+  h1 {
+    text-align: center;
+    margin: 0 0 8px;
+    font-size: clamp(2.2rem, 4vw, 3.4rem);
+  }
+
+  .subtitle {
+    text-align: center;
+    color: #cbd5e1;
+    font-size: 1.05rem;
+    margin-bottom: 22px;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: 1fr 320px 1fr;
+    gap: 24px;
+    align-items: stretch;
+  }
+
+  .zone {
+    min-height: 520px;
+    border-radius: 26px;
+    padding: 22px;
+    cursor: pointer;
+    transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
+    border: 4px solid transparent;
+    user-select: none;
+  }
+
+  .zone:hover:not(.locked) {
+    transform: scale(1.015);
+    filter: brightness(1.08);
+  }
+
+  .zone:active:not(.locked) {
+    transform: scale(.99);
+  }
+
+  .leiter {
+    background: linear-gradient(180deg, rgba(34,197,94,.30), rgba(22,101,52,.36));
+    border-color: #22c55e;
+  }
+
+  .nichtleiter {
+    background: linear-gradient(180deg, rgba(239,68,68,.28), rgba(153,27,27,.38));
+    border-color: #ef4444;
+  }
+
+  .zone.locked {
+    cursor: default;
+    opacity: .7;
+  }
+
+  .zone h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 2.2rem;
+  }
+
+  .zone .clickhint {
+    text-align: center;
+    margin: 8px 0 18px;
+    opacity: .85;
+  }
+
+  .assigned {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-content: flex-start;
+  }
+
+  .assigned-card {
+    background: rgba(255,255,255,.94);
+    color: #0f172a;
+    padding: 11px 15px;
+    border-radius: 14px;
+    font-weight: 800;
+    box-shadow: 0 7px 18px rgba(0,0,0,.22);
+    animation: settle .25s ease;
+  }
+
+  .assigned-card.correct {
+    outline: 3px solid #22c55e;
+  }
+
+  .assigned-card.wrong {
+    outline: 3px solid #f59e0b;
+  }
+
+  .center {
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+
+  #counter {
+    color: #cbd5e1;
+    min-height: 22px;
+    font-size: .95rem;
+  }
+
+  #cardStage {
+    width: 100%;
+    min-height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .material-card {
+    width: 255px;
+    min-height: 145px;
+    background: linear-gradient(180deg,#ffffff,#e2e8f0);
+    color: #0f172a;
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 1.65rem;
+    font-weight: 900;
+    box-shadow: 0 18px 38px rgba(0,0,0,.35);
+    border: 3px solid white;
+    animation: pop .34s ease;
+    user-select: none;
+  }
+
+  .pencil {
+    cursor: pointer;
+  }
+
+  .split {
+    width: 100%;
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .split-card {
+    width: 135px;
+    min-height: 110px;
+    font-size: 1.35rem;
+  }
+
+  .split-card.left {
+    animation: splitLeft .55s cubic-bezier(.2,.8,.2,1);
+  }
+
+  .split-card.right {
+    animation: splitRight .55s cubic-bezier(.2,.8,.2,1);
+  }
+
+  .split-card.active {
+    outline: 5px solid #38bdf8;
+    transform: scale(1.05);
+  }
+
+  .split-card.waiting {
+    opacity: .45;
+  }
+
+  #instruction {
+    color: #cbd5e1;
+    text-align: center;
+    line-height: 1.45;
+    max-width: 320px;
+    min-height: 48px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  button {
+    border: 0;
+    background: #334155;
+    color: white;
+    padding: 11px 16px;
+    border-radius: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: .15s ease;
+  }
+
+  button:hover { background: #475569; transform: translateY(-1px); }
+
+  .check-btn {
+    background: #0f766e;
+  }
+
+  .check-btn:hover {
+    background: #0d9488;
+  }
+
+  .finish {
+    border: 2px dashed rgba(255,255,255,.28);
+    border-radius: 20px;
+    padding: 24px;
+    text-align: center;
+    font-size: 1.45rem;
+    font-weight: 900;
+    line-height: 1.4;
+    animation: pop .35s ease;
+    width: 100%;
+  }
+
+  .finish small {
+    display: block;
+    margin-top: 10px;
+    color: #cbd5e1;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .result-box {
+    margin-top: 8px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .success {
+    background: rgba(34,197,94,.15);
+    border: 2px solid #22c55e;
+    color: #dcfce7;
+  }
+
+  .retry {
+    background: rgba(245,158,11,.14);
+    border: 2px solid #f59e0b;
+    color: #fef3c7;
+  }
+
+
+  .assigned.overview-mode {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .assigned.overview-mode .assigned-card {
+    width: 100%;
+    max-width: none;
+    text-align: center;
+    font-size: 1.05rem;
+  }
+
+  #confettiCanvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  @keyframes pop {
+    from { opacity: 0; transform: scale(.78) translateY(18px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  @keyframes settle {
+    from { opacity: 0; transform: scale(.85); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes splitLeft {
+    0% { opacity: 0; transform: translateX(65px) scale(.8) rotate(0deg); }
+    60% { opacity: 1; transform: translateX(-10px) scale(1.06) rotate(-2deg); }
+    100% { transform: translateX(0) scale(1) rotate(0deg); }
+  }
+
+  @keyframes splitRight {
+    0% { opacity: 0; transform: translateX(-65px) scale(.8) rotate(0deg); }
+    60% { opacity: 1; transform: translateX(10px) scale(1.06) rotate(2deg); }
+    100% { transform: translateX(0) scale(1) rotate(0deg); }
+  }
+
+  @media (max-width: 900px) {
+    .board { grid-template-columns: 1fr; }
+    .center { order: -1; min-height: 330px; }
+    .zone { min-height: 280px; }
+    .app { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="confettiCanvas"></canvas>
+
+<div class="app">
+  <h1>Leuchtet die LED?</h1>
+  <div class="subtitle">Klicke auf den Kasten, der zu deiner Beobachtung passt.</div>
+
+  <div class="board">
+    <div class="zone leiter" id="leiterZone">
+      <h2>LED leuchtet</h2>
+      <div class="clickhint">Hier klicken</div>
+      <div class="assigned" id="leiterList"></div>
+    </div>
+
+    <div class="center">
+      <div id="counter"></div>
+      <div id="cardStage"></div>
+      <div id="instruction"></div>
+      <div class="controls">
+        <button id="resetBtn">Neu starten</button>
+        <button id="checkBtn" class="check-btn" style="display:none;">Zuordnung prüfen</button>
+        <button id="overviewBtn" style="display:none;">Übersicht</button>
+      </div>
+      <div id="result"></div>
+    </div>
+
+    <div class="zone nichtleiter" id="nichtleiterZone">
+      <h2>LED leuchtet nicht</h2>
+      <div class="clickhint">Hier klicken</div>
+      <div class="assigned" id="nichtleiterList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const sequence = [
+  "Eisen",
+  "Holz",
+  "Bleistift",
+  "Papier",
+  "getrocknete Zitronenscheibe",
+  "Kupfer",
+  "Öl",
+  "Salzwasser",
+  "Zitronensaft"
+];
+
+const correctAssignments = {
+  "Eisen": "LED leuchtet",
+  "Papier": "LED leuchtet nicht",
+  "Kupfer": "LED leuchtet",
+  "Holz": "LED leuchtet nicht",
+  "Graphit": "LED leuchtet",
+  "getrocknete Zitronenscheibe": "LED leuchtet nicht",
+  "Zitronensaft": "LED leuchtet",
+  "Salzwasser": "LED leuchtet",
+  "Öl": "LED leuchtet nicht"
+};
+
+let index = 0;
+let mode = "normal";
+let splitStep = 0;
+let assignments = {};
+
+const cardStage = document.getElementById("cardStage");
+const counter = document.getElementById("counter");
+const instruction = document.getElementById("instruction");
+const leiterZone = document.getElementById("leiterZone");
+const nichtleiterZone = document.getElementById("nichtleiterZone");
+const leiterList = document.getElementById("leiterList");
+const nichtleiterList = document.getElementById("nichtleiterList");
+const resetBtn = document.getElementById("resetBtn");
+const checkBtn = document.getElementById("checkBtn");
+const overviewBtn = document.getElementById("overviewBtn");
+const result = document.getElementById("result");
+
+function setZonesLocked(locked) {
+  leiterZone.classList.toggle("locked", locked);
+  nichtleiterZone.classList.toggle("locked", locked);
+}
+
+function addAssigned(label, targetList, zoneName) {
+  assignments[label] = zoneName;
+
+  const el = document.createElement("div");
+  el.className = "assigned-card";
+  el.dataset.label = label;
+  el.textContent = label;
+  targetList.appendChild(el);
+}
+
+function showCard() {
+  cardStage.innerHTML = "";
+  result.innerHTML = "";
+
+  if (index >= sequence.length) {
+    mode = "finished";
+    setZonesLocked(true);
+    counter.textContent = "";
+    instruction.textContent = "";
+
+    const done = document.createElement("div");
+    done.className = "finish";
+    done.innerHTML = "Alle Stoffe wurden zugeordnet.<small>Prüft jetzt eure Zuordnung.</small>";
+    cardStage.appendChild(done);
+
+    checkBtn.style.display = "inline-block";
+    overviewBtn.style.display = "none";
+    return;
+  }
+
+  checkBtn.style.display = "none";
+  overviewBtn.style.display = "none";
+
+  const label = sequence[index];
+  counter.textContent = `Kärtchen ${index + 1} von ${sequence.length}`;
+
+  if (label === "Bleistift") {
+    mode = "pencil";
+    setZonesLocked(false);
+
+    const card = document.createElement("div");
+    card.className = "material-card pencil";
+    card.textContent = "Bleistift";
+    card.addEventListener("dblclick", splitPencil);
+    cardStage.appendChild(card);
+
+    instruction.textContent = "Ordne den Stoff zu.";
+  } else {
+    mode = "normal";
+    setZonesLocked(false);
+
+    const card = document.createElement("div");
+    card.className = "material-card";
+    card.textContent = label;
+    cardStage.appendChild(card);
+
+    instruction.textContent = "Klicke auf „LED leuchtet“ oder „LED leuchtet nicht“, um das Kärtchen zuzuordnen.";
+  }
+}
+
+function splitPencil() {
+  if (mode !== "pencil") return;
+
+  mode = "split";
+  splitStep = 0;
+  cardStage.innerHTML = "";
+
+  const wrap = document.createElement("div");
+  wrap.className = "split";
+
+  const wood = document.createElement("div");
+  wood.className = "material-card split-card left active";
+  wood.id = "woodCard";
+  wood.textContent = "Holz";
+
+  const graphite = document.createElement("div");
+  graphite.className = "material-card split-card right waiting";
+  graphite.id = "graphiteCard";
+  graphite.textContent = "Graphit";
+
+  wrap.appendChild(wood);
+  wrap.appendChild(graphite);
+  cardStage.appendChild(wrap);
+
+  instruction.textContent = "Ordne die beiden Bestandteile nacheinander zu.";
+}
+
+function choose(zoneName) {
+  if (mode === "finished") return;
+
+  const target = zoneName === "LED leuchtet" ? leiterList : nichtleiterList;
+
+  if (mode === "normal") {
+    const label = sequence[index];
+    addAssigned(label, target, zoneName);
+    index++;
+    setTimeout(showCard, 180);
+    return;
+  }
+
+  if (mode === "pencil") {
+    // Direkte Zuordnung des ganzen Bleistifts ist absichtlich nicht möglich.
+    // Die versteckte Doppelklick-Funktion bleibt der notwendige Weg.
+    return;
+  }
+
+  if (mode === "split") {
+    if (splitStep === 0) {
+      addAssigned("Holz", target, zoneName);
+      splitStep = 1;
+
+      const wood = document.getElementById("woodCard");
+      const graphite = document.getElementById("graphiteCard");
+
+      if (wood) wood.style.display = "none";
+      if (graphite) {
+        graphite.classList.remove("waiting");
+        graphite.classList.add("active");
+      }
+    } else {
+      addAssigned("Graphit", target, zoneName);
+      index++;
+      mode = "normal";
+      setTimeout(showCard, 180);
+    }
+  }
+}
+
+leiterZone.addEventListener("click", () => choose("LED leuchtet"));
+nichtleiterZone.addEventListener("click", () => choose("LED leuchtet nicht"));
+
+function checkAnswers() {
+  let allCorrect = true;
+
+  document.querySelectorAll(".assigned-card").forEach(card => {
+    card.classList.remove("correct", "wrong");
+    const label = card.dataset.label;
+    const actual = assignments[label];
+    const expected = correctAssignments[label];
+
+    if (actual === expected) {
+      card.classList.add("correct");
+    } else {
+      card.classList.add("wrong");
+      allCorrect = false;
+    }
+  });
+
+  if (allCorrect && Object.keys(assignments).length === Object.keys(correctAssignments).length) {
+    result.innerHTML = '<div class="result-box success">Alles richtig! 🎉</div>';
+    overviewBtn.style.display = "inline-block";
+    launchConfetti();
+  } else {
+    overviewBtn.style.display = "none";
+    result.innerHTML = '<div class="result-box retry">Noch nicht ganz richtig. Schaut euch die orange markierten Kärtchen noch einmal an.</div>';
+  }
+}
+
+checkBtn.addEventListener("click", checkAnswers);
+
+overviewBtn.addEventListener("click", () => {
+  cardStage.innerHTML = "";
+  counter.textContent = "";
+  instruction.textContent = "";
+  leiterList.innerHTML = "";
+  nichtleiterList.innerHTML = "";
+
+  leiterList.classList.add("overview-mode");
+  nichtleiterList.classList.add("overview-mode");
+
+  const ledOn = ["Eisen", "Graphit", "Kupfer", "Salzwasser", "Zitronensaft"];
+  const ledOff = ["Holz", "Papier", "Zitronenscheibe", "Öl"];
+
+  ledOn.forEach(label => {
+    const el = document.createElement("div");
+    el.className = "assigned-card correct";
+    el.textContent = label;
+    leiterList.appendChild(el);
+  });
+
+  ledOff.forEach(label => {
+    const el = document.createElement("div");
+    el.className = "assigned-card correct";
+    el.textContent = label;
+    nichtleiterList.appendChild(el);
+  });
+
+  result.innerHTML = '<div class="result-box success">Übersicht der Beobachtungen</div>';
+  overviewBtn.style.display = "none";
+});
+
+
+resetBtn.addEventListener("click", () => {
+  index = 0;
+  mode = "normal";
+  splitStep = 0;
+  assignments = {};
+  leiterList.innerHTML = "";
+  nichtleiterList.innerHTML = "";
+  result.innerHTML = "";
+  checkBtn.style.display = "none";
+  overviewBtn.style.display = "none";
+  leiterList.classList.remove("overview-mode");
+  nichtleiterList.classList.remove("overview-mode");
+  stopConfetti();
+  showCard();
+});
+
+/* Konfetti */
+const canvas = document.getElementById("confettiCanvas");
+const ctx = canvas.getContext("2d");
+let pieces = [];
+let confettiFrame = null;
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+function launchConfetti() {
+  stopConfetti();
+  pieces = [];
+
+  for (let i = 0; i < 180; i++) {
+    pieces.push({
+      x: Math.random() * canvas.width,
+      y: -20 - Math.random() * canvas.height * 0.35,
+      w: 6 + Math.random() * 8,
+      h: 8 + Math.random() * 10,
+      speed: 2 + Math.random() * 4,
+      drift: -1.5 + Math.random() * 3,
+      rotation: Math.random() * Math.PI,
+      rotationSpeed: -0.12 + Math.random() * 0.24,
+      hue: Math.floor(Math.random() * 360)
+    });
+  }
+
+  let frames = 0;
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    pieces.forEach(p => {
+      p.y += p.speed;
+      p.x += p.drift;
+      p.rotation += p.rotationSpeed;
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.fillStyle = `hsl(${p.hue}, 85%, 60%)`;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+
+    frames++;
+    if (frames < 260) {
+      confettiFrame = requestAnimationFrame(animate);
+    } else {
+      stopConfetti();
+    }
+  }
+
+  animate();
+}
+
+function stopConfetti() {
+  if (confettiFrame) cancelAnimationFrame(confettiFrame);
+  confettiFrame = null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+showCard();
+</script>
+</body>
+</html>
